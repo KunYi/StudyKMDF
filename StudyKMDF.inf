@@ -4,7 +4,7 @@
 
 [Version]
 Signature="$WINDOWS NT$"
-Class=Sample ; TODO: edit Class
+Class=KMDFStudy ; TODO: edit Class
 ClassGuid={78A1C341-4539-11d3-B88D-00C04FAD5171} ; TODO: edit ClassGuid
 Provider=%ManufacturerName%
 CatalogFile=StudyKMDF.cat
@@ -17,9 +17,9 @@ StudyKMDF_Device_CoInstaller_CopyFiles = 11
 ; ================= Class section =====================
 
 [ClassInstall32]
-Addreg=SampleClassReg
+Addreg=KMDFStudyClassReg
 
-[SampleClassReg]
+[KMDFStudyClassReg]
 HKR,,,0,%ClassName%
 HKR,,Icon,,-5
 
@@ -79,8 +79,8 @@ KmdfLibraryVersion = $KMDFVERSION$
 
 [Strings]
 SPSVCINST_ASSOCSERVICE= 0x00000002
-ManufacturerName="<Your manufacturer name>" ;TODO: Replace with your manufacturer name
-ClassName="Samples" ; TODO: edit ClassName
+ManufacturerName="UWINGS" ;TODO: Replace with your manufacturer name
+ClassName="KMDFStudy" ; TODO: edit ClassName
 DiskName = "StudyKMDF Installation Disk"
 StudyKMDF.DeviceDesc = "StudyKMDF Device"
 StudyKMDF.SVCDESC = "StudyKMDF Service"

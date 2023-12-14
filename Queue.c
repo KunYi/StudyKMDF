@@ -113,11 +113,30 @@ Return Value:
 
 --*/
 {
-    TraceEvents(TRACE_LEVEL_INFORMATION, 
-                TRACE_QUEUE, 
-                "%!FUNC! Queue 0x%p, Request 0x%p OutputBufferLength %d InputBufferLength %d IoControlCode %d", 
+    TraceEvents(TRACE_LEVEL_INFORMATION,
+                TRACE_QUEUE,
+                "%!FUNC! Queue 0x%p, Request 0x%p OutputBufferLength %d InputBufferLength %d IoControlCode %d",
                 Queue, Request, (int) OutputBufferLength, (int) InputBufferLength, IoControlCode);
 
+    if (IOCTL_WMI_EXECUTE == IoControlCode) {
+            PDEVICE_CONTEXT deviceContext;
+            WDFDEVICE device;
+            UNICODE_STRING instanceName;
+            UCHAR buff[256];
+            ULONG outSize = sizeof(buff);
+            device = WdfIoQueueGetDevice(Queue);
+            deviceContext = DeviceGetContext(device);
+            RtlInitUnicodeString(&instanceName, deviceContext->wmiInstanceName);
+
+            // invoke Method(WMBA, 3)
+            // ref. https://github.com/microsoft/Windows-driver-samples/blob/master/wmi/wmiacpi/device.asl#L612
+            NTSTATUS status = IoWMIExecuteMethod(deviceContext->pWMIObject,
+                                        &instanceName, 1, 0,
+                               &outSize, buff);
+            if (!NT_SUCCESS(status)) {
+                KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed, IoWMIExecuteMehtod(), return %d\n", status));
+            }
+    }
     WdfRequestComplete(Request, STATUS_SUCCESS);
 
     return;
@@ -152,9 +171,9 @@ Return Value:
 
 --*/
 {
-    TraceEvents(TRACE_LEVEL_INFORMATION, 
-                TRACE_QUEUE, 
-                "%!FUNC! Queue 0x%p, Request 0x%p ActionFlags %d", 
+    TraceEvents(TRACE_LEVEL_INFORMATION,
+                TRACE_QUEUE,
+                "%!FUNC! Queue 0x%p, Request 0x%p ActionFlags %d",
                 Queue, Request, ActionFlags);
 
     //

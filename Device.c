@@ -7,7 +7,7 @@ Module Name:
 Abstract:
 
    This file contains the device entry points and callbacks.
-    
+
 Environment:
 
     Kernel-mode Driver Framework
@@ -16,7 +16,7 @@ Environment:
 
 #include "driver.h"
 #include "device.tmh"
-
+#include <ntstrsafe.h.>
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text (PAGE, StudyKMDFCreateDevice)
 #endif
@@ -70,7 +70,9 @@ Return Value:
         // Initialize the context.
         //
         deviceContext->PrivateDeviceData = 0;
-
+        deviceContext->pWMIObject = NULL;
+        RtlZeroMemory(deviceContext->wmiInstanceName,
+                      sizeof(deviceContext->wmiInstanceName));
         //
         // Create a device interface so that applications can find and talk
         // to us.
@@ -87,6 +89,33 @@ Return Value:
             //
             status = StudyKMDFQueueInitialize(device);
         }
+
+        GUID sampleWMIACPI = DEMO_WMIACPI_GUID;
+
+        status = IoWMIOpenBlock(&sampleWMIACPI, WMIGUID_EXECUTE,
+                                &deviceContext->pWMIObject);
+
+        if (!NT_SUCCESS(status)) {
+          KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                     "Failed, execute IoWMIOpenBlock(), return %d\n", status));
+          return status;
+        }
+
+        BYTE buff[2048];
+        ULONG buffSize = sizeof(buff);
+        status = IoWMIQueryAllData(deviceContext->pWMIObject, &buffSize, buff);
+        if (!NT_SUCCESS(status)) {
+          KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                     "Failed, execute IoWMIQueryAllData(), return %d\n",
+                     status));
+          return status;
+        }
+        // store instance
+        WNODE_ALL_DATA *pWNode = (WNODE_ALL_DATA *)buff;
+        ULONG offset = *((PULONG)(buff + pWNode->OffsetInstanceNameOffsets));
+        LPCWCHAR pStr = (PWCHAR)(buff + offset + sizeof(USHORT)); // due to the string is COUNTED_STRINGS
+        RtlStringCbCopyW(deviceContext->wmiInstanceName,
+                         sizeof(deviceContext->wmiInstanceName), pStr);
     }
 
     return status;
