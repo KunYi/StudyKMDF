@@ -105,17 +105,41 @@ Return Value:
         ULONG buffSize = sizeof(buff);
         status = IoWMIQueryAllData(deviceContext->pWMIObject, &buffSize, buff);
         if (!NT_SUCCESS(status)) {
-          KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
-                     "Failed, execute IoWMIQueryAllData(), return %d\n",
-                     status));
-          return status;
+            KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                       "Failed: IoWMIQueryAllData() returned 0x%08X\n", status));
+            return status;
         }
-        // store instance
+
+        // pick the first Instance Name, and store it
+        // the demo code only pick the first instance
         WNODE_ALL_DATA *pWNode = (WNODE_ALL_DATA *)buff;
-        ULONG offset = *((PULONG)(buff + pWNode->OffsetInstanceNameOffsets));
-        LPCWCHAR pStr = (PWCHAR)(buff + offset + sizeof(USHORT)); // due to the string is COUNTED_STRINGS
-        RtlStringCbCopyW(deviceContext->wmiInstanceName,
-                         sizeof(deviceContext->wmiInstanceName), pStr);
+        if (pWNode->InstanceCount < 1 || pWNode->OffsetInstanceNameOffsets == 0) {
+            KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                       "Unexpected WMI structure: no instance names\n"));
+            return STATUS_UNSUCCESSFUL;
+        }
+
+        ULONG nameOffset = *((PULONG)(buff + pWNode->OffsetInstanceNameOffsets));
+        PUCHAR pNameRaw = buff + nameOffset;
+
+        USHORT nameLen = *((USHORT*)pNameRaw); // in bytes
+        PWCHAR nameStr = (PWCHAR)(pNameRaw + sizeof(USHORT));
+
+        // Avoid deviceContext overflow
+        size_t maxCopyLen = sizeof(deviceContext->wmiInstanceName);
+        if (nameLen + sizeof(WCHAR) > maxCopyLen) {
+            KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                       "WMI instance name too long to fit in buffer\n"));
+            return STATUS_BUFFER_OVERFLOW;
+        }
+
+        // Copy（Tips: WMI maybe without a null terminator）
+        RtlZeroMemory(deviceContext->wmiInstanceName, maxCopyLen);
+        RtlCopyMemory(deviceContext->wmiInstanceName, nameStr, nameLen);
+        deviceContext->wmiInstanceName[nameLen / sizeof(WCHAR)] = L'\0'; // add null terminator
+
+        KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
+                   "WMI instance: %ws\n", deviceContext->wmiInstanceName));
     }
 
     return status;

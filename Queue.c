@@ -122,20 +122,39 @@ Return Value:
             PDEVICE_CONTEXT deviceContext;
             WDFDEVICE device;
             UNICODE_STRING instanceName;
-            UCHAR buff[256];
+            UCHAR buff[256] = {0};
             ULONG outSize = sizeof(buff);
+
             device = WdfIoQueueGetDevice(Queue);
             deviceContext = DeviceGetContext(device);
+
+            // check wmiInstanceName has value
+            if (deviceContext->wmiInstanceName[0] == L'\0') {
+                KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                    "WMI instance name is empty.\n"));
+                WdfRequestComplete(Request, STATUS_INVALID_DEVICE_STATE);
+                return;
+            }
+
             RtlInitUnicodeString(&instanceName, deviceContext->wmiInstanceName);
 
             // invoke Method(WMBA, 3)
             // ref. https://github.com/microsoft/Windows-driver-samples/blob/master/wmi/wmiacpi/device.asl#L612
             NTSTATUS status = IoWMIExecuteMethod(deviceContext->pWMIObject,
-                                        &instanceName, 1, 0,
-                               &outSize, buff);
+                                                &instanceName,
+                                                1, // Method ID
+                                                0, // No input
+                                                &outSize,
+                                                buff);
+
             if (!NT_SUCCESS(status)) {
-                KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed, IoWMIExecuteMehtod(), return %d\n", status));
+                KdPrintEx((DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+                    "Failed: IoWMIExecuteMethod() returned 0x%08X\n", status));
+                WdfRequestComplete(Request, status);
+                return;
             }
+            // optional： copy result buff to usermode
+            // WdfRequestRetrieveOutputBuffer() + RtlCopyMemory(buff, ...)
     }
     WdfRequestComplete(Request, STATUS_SUCCESS);
 
